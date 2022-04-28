@@ -47,7 +47,7 @@
        width=1.0 * u.deg,
        height=1.0 * u.deg,
        catalog=['I/350'], # Gaia EDR3
-   )[0]
+   )['I/350/gaiaedr3']
 
    ra = stars['RAJ2000']._data   # прямое восхождение, аналог долготы
    dec = stars['DEJ2000']._data  # склонение, аналог широты
