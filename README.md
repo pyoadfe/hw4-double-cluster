@@ -3,7 +3,7 @@
 
 В этом задании вы будете восстанавливать параметры смешанных статистических распределений, используя два метода: метод максимального правдоподобия и EM-метод. Научным заданием будет выделение двух рассеянных скоплений  [h и χ Персея](https://apod.nasa.gov/apod/ap091204.html) в звёздном поле.
 
-**Дедлайн 20 апреля в 23:55**
+**Дедлайн 18 апреля в 23:55**
 
 Вы должны реализовать следующие алгоритмы в файле `mixfit.py`:
 
@@ -11,7 +11,68 @@
 
 2. **[Expectation-maximization метод](https://en.wikipedia.org/wiki/Expectation–maximization_algorithm)** для той же задачи: `em_double_gauss(x, tau, mu1, sigma1, mu2, sigma2, rtol=1e-3)`.
 
-3. **EM-метод для смеси трех нормальных распределений** — $\tau_1 N(\mu_1, \Sigma) + \tau_2 N(\mu_2, \Sigma) + (1-\tau_1-\tau_2) N(0, \Sigma_0)$
+3. **EM-метод для смеси двух двумерных нормальных распределений** — $\tau_1 N(\mu_1, \Sigma_1) + (1-\tau_1) N(\mu_2, \Sigma_2)$. Напишите функцию `em_double_2d_gauss(x, tau, mu1, sigma1, mu2, sigma2, rtol=1e-3)`.
+  * `tau` ($\tau$) — относительное количество звезд в скоплениях;
+  * `mu1` ($\mu1$) — двумерный вектор, средняя скорость звезд скоплений;
+  * Диагональная матрица 2x2, элементы которой равны $\sigma_1^2$ (`sigma1`). Разброс собственных движений звезд скоплений.
+  ```math
+  \Sigma_1 = \begin{bmatrix}
+  \sigma_1^2 & 0 \\
+  0 & \sigma_1^2
+  \end{bmatrix}
+  ```
+  * `mu2` ($\mu2$) — двумерный вектор, средняя скорость звезд поля;
+  * Диагональная матрица 2x2, элементы которой равны $\sigma_2^2$ (`sigma2`). Разброс собственных движений звезд поля.
+  ```math
+  \Sigma_2 = \begin{bmatrix}
+  \sigma_2^2 & 0 \\
+  0 & \sigma_2^2
+  \end{bmatrix}
+  ```
+
+4. Примените последний EM-метод в файле `per.py` для решения задачи нахождения центров и относительного числа звёзд в скоплениях h и χ Персея.
+Вам понадобиться модуль [astroquery.gaia](https://astroquery.readthedocs.io/en/latest/gaia/gaia.html) для того, чтобы загрузить координаты звёзд поля.
+Координаты центра двойного скопления `02h21m00s +57d07m42s`, используйте поле размером `1.0 x 1.0` градус.
+Пример запроса для получения данных:
+
+   ```python
+   limit_magnitude = 16
+   center_coord = SkyCoord('02h21m00s +57d07m42s')
+   target_size = 0.5
+   range_ra = (center_coord.ra.degree - target_size / np.cos(center_coord.dec.radian),
+               center_coord.ra.degree + target_size / np.cos(center_coord.dec.radian))
+   range_dec = (center_coord.dec.degree - target_size, center_coord.dec.degree + target_size)
+   query = '''
+   SELECT ra, dec, pmra, pmdec FROM gaiadr3.gaia_source WHERE phot_bp_mean_mag < {:.2f} AND pmra IS NOT NULL AND pmdec IS NOT NULL AND ra BETWEEN {:} AND {:} AND dec BETWEEN {:} AND {:}
+   '''.format(limit_magnitude, *range_ra, *range_dec)
+
+   job = Gaia.launch_job_async(query)
+   stars = job.get_results()
+   ra = np.asarray(stars['ra']._data)
+   dec = np.asarray(stars['dec']._data)
+   pmra = np.asarray(stars['pmra']._data)
+   pmdec = np.asarray(stars['pmdec']._data)
+   ```
+
+5. В файл `per.json` сохрнаите результаты:
+
+    ```json
+    {
+      "ratio": 0.4,
+      "motion": {
+        "cluster": {"ra": -0.63, "dec": -1.15},
+        "background": {"ra": 1.53, "dec": 2.05}
+      }
+    }
+    ```
+
+6. В файле `per.png` изобразите график рассеяния точек звёздного поля, и график рассеяния собственных движений.
+На обоих графиках для каждой точки отметьте цветом условную вероятность принадлежности к скоплениям (используйте вычисленные параметры `T`).
+На графике рассеяния собственных движения (скоростей) обозначьте скопления окружностью с центром в центре распределения и радиусом равным стандартном отклонению (корень из дисперсии).
+
+> **Задания на бонусные баллы.**
+
+7. **EM-метод для смеси трех нормальных распределений** — $\tau_1 N(\mu_1, \Sigma) + \tau_2 N(\mu_2, \Sigma) + (1-\tau_1-\tau_2) N(0, \Sigma_0)$
 Напишите функцию `em_double_cluster(x, tau1, tau2, muv, mu1, mu2, sigma02, sigmax2, sigmav2, rtol=1e-5)`, где
   * $x$ (x) — массив `(N, 4)` состоящий из двух столбцов координат звезд, и двух столбцов собственых движений звезд.
 [Собственными движениями](http://www.astronet.ru/db/msg/1171379) называется скорость движения звезды в [картинной плоскости](http://www.astronet.ru/db/msg/1190817/node7.html) в угловых единицах;
@@ -47,44 +108,9 @@
   \end{bmatrix}
   ```
 
-> **Задание на бонусные баллы.**
-> Для отладки ваших алгоритмов и самопроверки, вы можете написать несколько [модульных тестов](https://docs.python.org/3/library/unittest.html) в файле `test.py`.
-> Для генерации случайных данных подойдут, например, методы [`scipy.stats.multivariate_normal.rvs`](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.multivariate_normal.html) и [`scipy.stats.uniform.rvs`](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.uniform.html).
+8. Примените этот усовершенствованный EM-метод в файле `per.py` для решения задачи нахождения центров и относительного числа звёзд в скоплениях h и χ Персея.
 
-4. Примените последний EM-метод в файле `per.py` для решения задачи нахождения центров и относительного числа звёзд в скоплениях h и χ Персея.
-Вам понадобиться модуль [astroquery.vizier](https://astroquery.readthedocs.io/en/latest/vizier/vizier.html) для того, чтобы загрузить координаты звёзд поля.
-Координаты центра двойного скопления `02h21m00s +57d07m42s`, используйте поле размером `1.0 x 1.0` градус.
-Пример запроса для получения данных:
-
-   ```python
-   import numpy as np
-   import astropy.units as u
-   from astropy.coordinates import SkyCoord
-   from astroquery.vizier import Vizier
-
-   center_coord = SkyCoord('02h21m00s +57d07m42s')
-   vizier = Vizier(
-       columns=['RAJ2000', 'DEJ2000', 'pmRA', 'pmDE'],
-       column_filters={'BPmag': '<16', 'pmRA': '!=', 'pmDE': '!='}, # число больше — звёзд больше
-       row_limit=10000
-   )
-   stars = vizier.query_region(
-       center_coord,
-       width=1.0 * u.deg,
-       height=1.0 * u.deg,
-       catalog=['I/350'], # Gaia EDR3
-   )['I/350/gaiaedr3']
-
-   ra = stars['RAJ2000']._data   # прямое восхождение, аналог долготы
-   dec = stars['DEJ2000']._data  # склонение, аналог широты
-   x1 = (ra - ra.mean()) * np.cos(dec / 180 * np.pi) + ra.mean()
-   x2 = dec
-   v1 = stars['pmRA']._data
-   v2 = stars['pmDE']._data
-
-   ```
-
-5. В файл `per.json` сохрнаите результаты:
+9. В файл `double_per.json` сохрнаите результаты:
 
     ```json
     {
@@ -101,6 +127,6 @@
     }
     ```
 
-6. В файле `per.png` изобразите график рассеяния точек звёздного поля, и график рассеяния собственных движений.
+10. В файле `double_per.png` изобразите график рассеяния точек звёздного поля, и график рассеяния собственных движений.
 На обоих графиках для каждой точки отметьте цветом условную вероятность принадлежности к одному из скоплений (используйте вычисленные параметры `T1` и `T2`).
 Обозначьте скопления окружностями с центром в центре распределения и радиусом равным стандартном отклонению (корень из дисперсии).
