@@ -1,5 +1,0 @@
-astropy
-astroquery
-matplotlib
-pandas
-scipy
